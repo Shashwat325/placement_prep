@@ -2,7 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import { query } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
-import { scoreTranscriptSimilarity } from '../utils/scoring.js';
+import { scoreTranscriptSimilarity } from '../utils/Scoring.js';
 import { scoreVoiceAnswer } from '../services/voiceServiceClient.js';
 
 const router = express.Router();
