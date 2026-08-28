@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment variables (secrets — never commit these)
+.env
+*/.env
+
+# Build output
+dist/
+*/dist/
+
+# Uploaded audio files (local dev only)
+backend/uploads/audio/*
+!backend/uploads/audio/.gitkeep
+
+# voice-scoring-service already has its own separate git repo and GitHub
+# remote — exclude it here so it doesn't get nested inside this repo.
+voice-scoring-service/
+
+# OS/editor junk
+.DS_Store
+*.log
