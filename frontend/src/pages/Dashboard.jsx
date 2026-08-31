@@ -103,7 +103,7 @@ export default function Dashboard() {
           )}
         </section>
 
-        <section>
+        {/*<section>
           <h2>Recent Activity</h2>
           {profile.recentAttempts.length === 0 ? (
             <p className="no-data">No recent attempts yet.</p>
@@ -122,7 +122,7 @@ export default function Dashboard() {
               ))}
             </ul>
           )}
-        </section>
+        </section>*/}
       </div>
     </>
   );

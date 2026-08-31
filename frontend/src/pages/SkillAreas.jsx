@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSkillAreas } from '../api/questions.js';
 import Navbar from '../components/Navbar.jsx';
-
+import api from '../api/client.js';
 export default function SkillAreas() {
   const navigate = useNavigate();
   const [areas, setAreas] = useState([]);
@@ -40,7 +40,12 @@ export default function SkillAreas() {
       </div>
     </>
   );
-
+    function handlearea(area){
+    if(area.type==='speaking'){
+      api.post(`/interview/warmup`).catch(()=>{});
+    }
+    navigate(`/practice/${area.id}/topics`);
+  }
   // Show all skill areas - speaking exercises now work with voice service integration
   const skillAreasToShow = areas;
 
@@ -61,7 +66,7 @@ export default function SkillAreas() {
               {skillAreasToShow.map((area) => (
                 <button
                   key={area.id}
-                  onClick={() => navigate(`/practice/${area.id}/topics`)}
+                  onClick={() => handlearea(area)}
                   className="skill-area-card"
                 >
                   <div className="skill-area-icon">{area.icon || '📚'}</div>
