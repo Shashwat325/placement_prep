@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Plus, Upload, CheckCircle2, AlertCircle, Loader2, ChevronDown, ListChecks, Mic, Shuffle, FileText } from "lucide-react";
 import Navbar from "../components/Navbar.jsx";
 import "bootstrap/js/dist/base-component.js";
 import api from '../api/client.js'; // your existing axios instance — already attaches the JWT token
-
+import { Plus, Upload, CheckCircle2, AlertCircle, Loader2, ChevronDown, ListChecks, Mic, Shuffle, FileText, UploadCloud } from "lucide-react";
 const QUESTION_TYPES = [
   {
     value: "mcq",
@@ -104,7 +103,11 @@ export default function AdminQuestionUpload() {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState(null);
   const [recentlyAdded, setRecentlyAdded] = useState([]);
-
+  const [mode, setMode] = useState("single"); // "single" | "bulk"
+const [csvFile, setCsvFile] = useState(null);
+const [csvFileName, setCsvFileName] = useState("");
+const [csvUploading, setCsvUploading] = useState(false);
+const [csvResult, setCsvResult] = useState(null); // { inserted, failed: [...] }
   const activeType = QUESTION_TYPES.find((t) => t.value === questionType);
 
   const showToast = (type, message) => {
@@ -190,7 +193,58 @@ export default function AdminQuestionUpload() {
     }
     return null;
   };
+  const handleCsvChange = (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  if (!f.name.endsWith(".csv")) {
+    showToast("error", "Please select a .csv file");
+    return;
+  }
+  setCsvFile(f);
+  setCsvFileName(f.name);
+  setCsvResult(null);
+};
 
+const handleCsvUpload = async () => {
+  if (!csvFile) {
+    showToast("error", "Choose a CSV file first");
+    return;
+  }
+  setCsvUploading(true);
+  setCsvResult(null);
+  const formData = new FormData();
+  formData.append("file", csvFile);
+  try {
+    const res = await api.post("/admin/questions/bulk-csv", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    setCsvResult(res.data);
+    if (res.data.failed.length === 0) {
+      showToast("success", `${res.data.inserted} question(s) uploaded.`);
+      setCsvFile(null);
+      setCsvFileName("");
+    } else {
+      showToast("error", `${res.data.failed.length} row(s) failed — see details below.`);
+    }
+  } catch {
+    showToast("error", "Upload failed. Check the file and try again.");
+  } finally {
+    setCsvUploading(false);
+  }
+};
+
+const downloadSampleCsv = () => {
+  const sample = `skill_area_name,topic_name,question_type,prompt,options,correct_answer
+Aptitude,Percentages,mcq,"What is 20% of 150?","30|45|20|15",30
+Speaking,Fluency,repeat_paragraph,"Read this sentence aloud",,"The quick brown fox jumps over the lazy dog"`;
+  const blob = new Blob([sample], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "sample_questions.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+};
   const handleSubmit = async (e) => {
     e.preventDefault();
     const err = validate();
@@ -223,9 +277,32 @@ export default function AdminQuestionUpload() {
   return (
     <div className="min-h-screen w-full flex flex-col bg-stone-50 text-stone-900" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
       <Navbar />
-
+      <div className="max-w-3xl w-full mx-auto px-6 pt-6">
+  <div className="d-flex gap-2 p-1 rounded-lg" style={{ backgroundColor: "#252627", width: "fit-content" }}>
+    <button
+      type="button"
+      onClick={() => setMode("single")}
+      className={`px-4 py-2 rounded-md text-[13px] font-medium transition-colors ${
+        mode === "single" ? "bg-black text-white" : "text-stone-600"
+      }`}
+    >
+      Single question
+    </button>
+    <button
+      type="button"
+      onClick={() => setMode("bulk")}
+      className={`px-4 py-2 rounded-md text-[13px] font-medium transition-colors ${
+        mode === "bulk" ? "bg-black text-white" : "text-stone-600"
+      }`}
+    >
+      Bulk upload (CSV)
+    </button>
+  </div>
+</div>
       <div className="max-w-3xl w-full mx-auto px-6 py-8 grid gap-2">
+
         {/* Placement in the bank */}
+        {mode==='single'&&(
         <section className="border border-stone-200 rounded-xl d-flex flex-column flex-wrap align-items-center p-0" style={{ backgroundColor: "#899ec0",height:"50vh" }}  >
           <h2 className="text-[13px] font-semibold text-stone-800 mb-4 ">Where this goes</h2>
           <div className="bg-dark  gap-4 d-flex flex-column text-white align-items-stretch"  >
@@ -292,141 +369,202 @@ export default function AdminQuestionUpload() {
           </div>
 
           
-        </section>
+                </section>)}
 
-        {/* Question type selector */}
-        <section className="p-1 d-flex flex-column gap-0">
-          <h2 className="text-[13px] font-semibold text-white text-center bg-dark mp-3 mb-2 tracking-wide">Question type</h2>
-          <div className="d-flex flex-row justify-content-center gap-0 w-full p-2 rounded-lg flex-wrap" style={{ backgroundColor: "#d3def0" }} >
-            {QUESTION_TYPES.map((t) => {
-              const Icon = t.icon;
-              const active = questionType === t.value;
-              return (
-                <button
-                  key={t.value}
-                  type="button"
-                  onClick={() => {
-                    setQuestionType(t.value);
-                    resetQuestionFields();
-                  }}
-                  className={`flex flex-col mw-full items-center gap-2 rounded-lg border px-3 py-3 text-center transition-colors ${
-                    active
-                      ? "border-teal-600 bg-teal-50/70 ring-1 ring-teal-600/30"
-                      : "border-stone-200 bg-white hover:border-stone-300"
-                  }`}
-                >
-                  <Icon size={16} className={active ? "text-teal-700" : "text-stone-400"} />
-                  <span className={`text-[12.5px] font-medium leading-tight ${active ? "text-teal-900" : "text-stone-600"}`}>
-                    {t.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* Question form */}
-        <form onSubmit={handleSubmit} className="bg-white d-flex flex-column justify-content-center border border-stone-200 rounded-xl p-5 ">
-          <Field label={activeType.promptLabel} hint={`${prompt.length} chars`}>
-            <textarea
-              className={inputClass + " min-h-[96px] resize-y"}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder={
-                questionType === "mcq"
-                  ? "e.g. What is 15% of 240?"
-                  : questionType === "jumbled_sentence"
-                  ? "e.g. quickly / the / fox / jumped / brown"
-                  : "Paste the paragraph text…"
-              }
-            />
-          </Field>
-
-          {activeType.needsOptions && (
-            <div>
-              <div className="text-[13px] font-medium text-stone-700 mb-1.5">Options</div>
-              <div className="grid sm:grid-cols-2 gap-2.5">
-                {options.map((opt, i) => (
-                  <input
-                    key={i}
-                    className={inputClass}
-                    placeholder={`Option ${String.fromCharCode(65 + i)}`}
-                    value={opt}
-                    onChange={(e) => {
-                      const next = [...options];
-                      next[i] = e.target.value;
-                      setOptions(next);
-                    }}
-                  />
-                ))}
+        {mode === "single" && (
+          <>
+            {/* Question type selector */}
+            <section className="p-1 d-flex flex-column gap-0">
+              <h2 className="text-[13px] font-semibold text-white text-center bg-dark mp-3 mb-2 tracking-wide">Question type</h2>
+              <div className="d-flex flex-row justify-content-center gap-0 w-full p-2 rounded-lg flex-wrap" style={{ backgroundColor: "#d3def0" }} >
+                {QUESTION_TYPES.map((t) => {
+                  const Icon = t.icon;
+                  const active = questionType === t.value;
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => {
+                        setQuestionType(t.value);
+                        resetQuestionFields();
+                      }}
+                      className={`flex flex-col mw-full items-center gap-2 rounded-lg border px-3 py-3 text-center transition-colors ${
+                        active
+                          ? "border-teal-600 bg-teal-50/70 ring-1 ring-teal-600/30"
+                          : "border-stone-200 bg-white hover:border-stone-300"
+                      }`}
+                    >
+                      <Icon size={16} className={active ? "text-teal-700" : "text-stone-400"} />
+                      <span className={`text-[12.5px] font-medium leading-tight ${active ? "text-teal-900" : "text-stone-600"}`}>
+                        {t.label}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
-            </div>
-          )}
+            </section>
 
-          {activeType.needsAnswer && (
-            <Field label={activeType.answerLabel || "Correct answer"}>
-              {questionType === "mcq" ? (
-                <div className="relative">
-                  <select
-                    className={inputClass + " appearance-none pr-8"}
-                    value={correctAnswer}
-                    onChange={(e) => setCorrectAnswer(e.target.value)}
-                  >
-                    <option value="">Select the correct option</option>
-                    {options.map((opt, i) =>
-                      opt.trim() ? (
-                        <option key={i} value={opt}>
-                          {String.fromCharCode(65 + i)}. {opt}
-                        </option>
-                      ) : null
-                    )}
-                  </select>
-                  <ChevronDown size={15} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
-                </div>
-              ) : (
+            {/* Question form */}
+            <form onSubmit={handleSubmit} className="bg-white d-flex flex-column justify-content-center border border-stone-200 rounded-xl p-5 ">
+              <Field label={activeType.promptLabel} hint={`${prompt.length} chars`}>
                 <textarea
-                  className={inputClass + " min-h-[70px] resize-y"}
-                  value={correctAnswer}
-                  onChange={(e) => setCorrectAnswer(e.target.value)}
-                  placeholder="e.g. The quick brown fox jumped"
+                  className={inputClass + " min-h-[96px] resize-y"}
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder={
+                    questionType === "mcq"
+                      ? "e.g. What is 15% of 240?"
+                      : questionType === "jumbled_sentence"
+                      ? "e.g. quickly / the / fox / jumped / brown"
+                      : "Paste the paragraph text…"
+                  }
                 />
+              </Field>
+
+              {activeType.needsOptions && (
+                <div>
+                  <div className="text-[13px] font-medium text-stone-700 mb-1.5">Options</div>
+                  <div className="grid sm:grid-cols-2 gap-2.5">
+                    {options.map((opt, i) => (
+                      <input
+                        key={i}
+                        className={inputClass}
+                        placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                        value={opt}
+                        onChange={(e) => {
+                          const next = [...options];
+                          next[i] = e.target.value;
+                          setOptions(next);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
               )}
-            </Field>
-          )}
 
-          <Field label="Difficulty">
-            <div className="flex gap-2">
-              {DIFFICULTIES.map((d) => (
+              {activeType.needsAnswer && (
+                <Field label={activeType.answerLabel || "Correct answer"}>
+                  {questionType === "mcq" ? (
+                    <div className="relative">
+                      <select
+                        className={inputClass + " appearance-none pr-8"}
+                        value={correctAnswer}
+                        onChange={(e) => setCorrectAnswer(e.target.value)}
+                      >
+                        <option value="">Select the correct option</option>
+                        {options.map((opt, i) =>
+                          opt.trim() ? (
+                            <option key={i} value={opt}>
+                              {String.fromCharCode(65 + i)}. {opt}
+                            </option>
+                          ) : null
+                        )}
+                      </select>
+                      <ChevronDown size={15} className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400" />
+                    </div>
+                  ) : (
+                    <textarea
+                      className={inputClass + " min-h-[70px] resize-y"}
+                      value={correctAnswer}
+                      onChange={(e) => setCorrectAnswer(e.target.value)}
+                      placeholder="e.g. The quick brown fox jumped"
+                    />
+                  )}
+                </Field>
+              )}
+
+              <Field label="Difficulty">
+                <div className="flex gap-2">
+                  {DIFFICULTIES.map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setDifficulty(d)}
+                      className={`px-3 py-1.5 rounded-md text-[12.5px] font-medium border capitalize transition-colors ${
+                        difficulty === d
+                          ? "border-teal-600 bg-teal-600 text-dark hover:bg-teal-700"
+                          : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+
+              <div className="flex items-center justify-between pt-1 border-t border-stone-100 mt-1">
+                <span className="text-[12px] text-stone-400">
+                  Submits directly to <code className="bg-stone-100 px-1 py-0.5 rounded text-[11.5px]">POST /api/admin/questions</code>
+                </span>
                 <button
-                  key={d}
-                  type="button"
-                  onClick={() => setDifficulty(d)}
-                  className={`px-3 py-1.5 rounded-md text-[12.5px] font-medium border capitalize transition-colors ${
-                    difficulty === d
-                      ? "border-teal-600 bg-teal-600 text-dark hover:bg-teal-700"
-                      : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
-                  }`}
+                  type="submit"
+                  disabled={submitting}
+                  className="inline-flex items-center gap-2 rounded-md bg-teal-700 hover:bg-teal-800 disabled:opacity-60 text-dark text-[13.5px] font-medium px-4 py-2 transition-colors"
                 >
-                  {d}
+                  {submitting ? <Loader2 size={15} className="animate-spin " /> : <Upload size={15} />}
+                  {submitting ? "Saving…" : "Upload"}
                 </button>
-              ))}
-            </div>
-          </Field>
+              </div>
+            </form>
+          </>
+        )}
 
-          <div className="flex items-center justify-between pt-1 border-t border-stone-100 mt-1">
-            <span className="text-[12px] text-stone-400">
-              Submits directly to <code className="bg-stone-100 px-1 py-0.5 rounded text-[11.5px]">POST /api/admin/questions</code>
-            </span>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="inline-flex items-center gap-2 rounded-md bg-teal-700 hover:bg-teal-800 disabled:opacity-60 text-dark text-[13.5px] font-medium px-4 py-2 transition-colors"
-            >
-              {submitting ? <Loader2 size={15} className="animate-spin " /> : <Upload size={15} />}
-              {submitting ? "Saving…" : "Upload"}
-            </button>
-          </div>
-        </form>
+        {mode === "bulk" && (
+          <section className="bg-white border border-stone-200 rounded-xl p-5">
+            <div className="d-flex align-items-center justify-content-between mb-4">
+              <h2 className="text-[13px] font-semibold text-stone-800 tracking-wide">Upload questions from CSV</h2>
+              <button
+                type="button"
+                onClick={downloadSampleCsv}
+                className="text-[12px] text-teal-700 hover:text-teal-800 font-medium"
+              >
+                Download sample CSV
+              </button>
+            </div>
+
+            <Field label="CSV file" hint="columns: skill_area_name, topic_name, question_type, prompt, options, correct_answer">
+              <input
+                type="file"
+                accept=".csv"
+                className={inputClass}
+                onChange={handleCsvChange}
+                disabled={csvUploading}
+              />
+            </Field>
+            {csvFileName && <p className="text-[12px] text-stone-500 mt-1.5">Selected: {csvFileName}</p>}
+
+            <div className="d-flex justify-content-end pt-3 mt-2 border-t border-stone-100">
+              <button
+                type="button"
+                onClick={handleCsvUpload}
+                disabled={!csvFile || csvUploading}
+                className="inline-flex items-center gap-2 rounded-md bg-teal-700 hover:bg-teal-800 disabled:opacity-60 text-white text-[13.5px] font-medium px-4 py-2 transition-colors"
+              >
+                {csvUploading ? <Loader2 size={15} className="animate-spin" /> : <UploadCloud size={15} />}
+                {csvUploading ? "Uploading…" : "Upload CSV"}
+              </button>
+            </div>
+
+            {csvResult && (
+              <div className="mt-4 pt-4 border-t border-stone-100">
+                <p className="text-[13px] text-stone-800 font-medium">
+                  Inserted {csvResult.inserted} question{csvResult.inserted !== 1 ? "s" : ""}
+                </p>
+                {csvResult.failed.length > 0 && (
+                  <div className="mt-2 max-h-56 overflow-y-auto">
+                    {csvResult.failed.map((f, i) => (
+                      <div key={i} className="text-[12.5px] text-red-700 py-1">
+                        Row {f.row} ("{f.question}"): {f.reason}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Recently added */}
 
         {/* Recently added */}
         {recentlyAdded.length > 0 && (

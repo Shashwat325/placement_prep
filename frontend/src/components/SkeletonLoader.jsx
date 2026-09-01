@@ -11,7 +11,9 @@ const SkeletonLoader = ({
   return (
     <div className={`skeleton-loader ${className}`} style={{ width, height }}>
       {Array.from({ length: count }).map((_, index) => (
-        <div key={index} className={`skeleton-${type}}` />
+        <div key={index} className={`skeleton-${type}`}>
+          
+        </div>
       ))}
     </div>
   );

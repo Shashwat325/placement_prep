@@ -1,6 +1,8 @@
 import express from 'express';
 import { query } from '../db/index.js';
 import { requireAuth } from '../middleware/auth.js';
+import multer from 'multer';
+import { parse } from 'csv-parse/sync';
 
 const router = express.Router();
 
@@ -128,5 +130,85 @@ router.get('/', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch questions' });
   }
 });
+const csvUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+// Shared insert loop, used by both /bulk (JSON) and /bulk-csv (file upload)
+async function handleBulkInsert(questions, res) {
+  const results = { inserted: 0, failed: [] };
 
+  for (let i = 0; i < questions.length; i++) {
+    const q = questions[i];
+    try {
+      const { skillAreaName, topicName, questionType, prompt, options, correctAnswer } = q;
+
+      if (!skillAreaName || !questionType || !prompt || !correctAnswer) {
+        throw new Error('Missing required field (skillAreaName, questionType, prompt, correctAnswer)');
+      }
+      const validTypes = ['mcq', 'jumbled_sentence', 'repeat_paragraph', 'summarize_paragraph'];
+      if (!validTypes.includes(questionType)) {
+        throw new Error(`Invalid question_type: ${questionType}`);
+      }
+      if (questionType === 'mcq' && (!Array.isArray(options) || options.length < 2)) {
+        throw new Error('mcq requires at least 2 options');
+      }
+
+      const skillAreaResult = await query('SELECT id FROM skill_areas WHERE name = $1', [skillAreaName]);
+      if (skillAreaResult.rows.length === 0) throw new Error(`Unknown skill area: ${skillAreaName}`);
+      const skillAreaId = skillAreaResult.rows[0].id;
+
+      let topicId = null;
+      if (topicName) {
+        const topicResult = await query(
+          'SELECT id FROM topics WHERE name = $1 AND skill_area_id = $2',
+          [topicName, skillAreaId]
+        );
+        if (topicResult.rows.length === 0) throw new Error(`Unknown topic: ${topicName}`);
+        topicId = topicResult.rows[0].id;
+      }
+
+      await query(
+        `INSERT INTO questions (skill_area_id, topic_id, question_type, prompt, options, correct_answer)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [skillAreaId, topicId, questionType, prompt, options ? JSON.stringify(options) : null, correctAnswer]
+      );
+
+      results.inserted++;
+    } catch (err) {
+      results.failed.push({ row: i + 1, question: q.prompt || '(no prompt)', reason: err.message });
+    }
+  }
+
+  res.status(results.failed.length ? 207 : 201).json(results);
+}
+
+// POST /bulk — JSON body (unchanged behavior, now uses the shared function)
+router.post('/bulk', requireAuth, async (req, res) => {
+  const { questions } = req.body;
+  if (!Array.isArray(questions) || questions.length === 0) {
+    return res.status(400).json({ error: 'questions array is required' });
+  }
+  return handleBulkInsert(questions, res);
+});
+
+// POST /bulk-csv — multipart file upload, field name "file"
+router.post('/bulk-csv', requireAuth, csvUpload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'CSV file is required' });
+
+  let rows;
+  try {
+    rows = parse(req.file.buffer.toString('utf-8'), { columns: true, skip_empty_lines: true, trim: true });
+  } catch (err) {
+    return res.status(400).json({ error: `Failed to parse CSV: ${err.message}` });
+  }
+
+  const questions = rows.map((r) => ({
+    skillAreaName: r.skill_area_name,
+    topicName: r.topic_name || null,
+    questionType: r.question_type,
+    prompt: r.prompt,
+    options: r.options ? r.options.split('|').map((o) => o.trim()) : null,
+    correctAnswer: r.correct_answer,
+  }));
+
+  return handleBulkInsert(questions, res);
+});
 export default router;
