@@ -11,7 +11,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/signup" />} />
+        <Route path="/" element={<SkillAreas />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/admin/questions" element={<AdminQuestionUpload />} />
         <Route path="/login" element={<Login />} />

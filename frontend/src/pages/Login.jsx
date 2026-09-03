@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { login } from '../api/auth.js';
 import { useToast } from '../context/ToastContext';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo=location.state?.redirectTo||'/dashboard';
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const { addToast } = useToast();
@@ -21,7 +23,7 @@ export default function Login() {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
       addToast('Login successful!', 'success');
-      navigate('/dashboard');
+      navigate(redirectTo);
     } catch (err) {
       const errorMessage = err.response?.data?.error || 'Login failed. Please try again.';
       addToast(errorMessage, 'error');

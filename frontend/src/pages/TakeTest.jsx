@@ -42,7 +42,6 @@ export default function TakeTest() {
   const [isChatbotSpeaking, setIsChatbotSpeaking] = useState(false);
   const [chatbotUtterance, setChatbotUtterance] = useState(null);
   const [testMode, setTestMode] = useState(null);
-
   const [attemptId, setAttemptId] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -71,7 +70,7 @@ export default function TakeTest() {
     }
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-US';
-    utterance.rate = 0.9;
+    utterance.rate = 0.7;
     utterance.volume = 0.9;
     utterance.onstart = () => setIsChatbotSpeaking(true);
     utterance.onend = () => {

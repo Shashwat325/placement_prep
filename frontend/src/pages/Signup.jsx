@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link,useLocation } from 'react-router-dom';
 import { signup } from '../api/auth.js';
 import { useToast } from '../context/ToastContext';
 
 export default function Signup() {
   const navigate = useNavigate();
+  const location = useLocation(); 
+  const redirectTo=location.state?.redirectTo||'/dashboard';
   const [form, setForm] = useState({ name: '', email: '', password: '', college: '' });
   const [loading, setLoading] = useState(false);
   const { addToast } = useToast();
@@ -21,7 +23,7 @@ export default function Signup() {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
       addToast('Account created successfully!', 'success');
-      navigate('/dashboard');
+      navigate(redirectTo);
     } catch (err) {
       const errorMessage = err.response?.data?.error || 'Signup failed. Please try again.';
       addToast(errorMessage, 'error');

@@ -8,7 +8,7 @@ export default function SkillAreas() {
   const [areas, setAreas] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-
+  const isloggedin=!!localStorage.getItem('token');
   useEffect(() => {
     getSkillAreas()
       .then((data) => {
@@ -41,6 +41,11 @@ export default function SkillAreas() {
     </>
   );
     function handlearea(area){
+      const path = `/practice/${area.id}/topics`;
+      if(!isloggedin){
+        navigate('/login', { state: { redirectTo: path } });
+        return;
+      }
     if(area.type==='speaking'){
       api.post(`/interview/warmup`).catch(()=>{});
     }

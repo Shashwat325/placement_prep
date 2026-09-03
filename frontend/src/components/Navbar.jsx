@@ -4,6 +4,7 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { useState, useEffect } from 'react';
 export default function Navbar() {
   const navigate = useNavigate();
+  const user=JSON.parse(localStorage.getItem('user')) || null;
   const [profile, setProfile] = useState(null);
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -56,9 +57,7 @@ export default function Navbar() {
                 </NavLink>
                 </li>
               )}
-            
           </ul>
-
           <button className="btn btn-outline-light px-3" onClick={handleLogout}>
             Logout
           </button>
